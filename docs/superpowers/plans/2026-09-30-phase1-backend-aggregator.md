@@ -591,7 +591,10 @@ BASE_URL = "https://hacker-news.firebaseio.com/v0"
 
 
 def _mock_response(json_data):
-    response = httpx.Response(200, json=json_data)
+    # httpx requires `.request` to be set before raise_for_status() can be
+    # called at all, even for a 200 -- a manually-built Response never has
+    # one, unlike a real client.get() response, so it must be set explicitly.
+    response = httpx.Response(200, json=json_data, request=httpx.Request("GET", "https://example.com"))
     return response
 
 
