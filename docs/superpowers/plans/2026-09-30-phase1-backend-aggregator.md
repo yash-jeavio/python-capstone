@@ -878,7 +878,7 @@ Expected: FAIL with `ModuleNotFoundError: No module named 'app.database.reposito
 ```python
 from datetime import datetime, timezone
 
-from sqlalchemy import func
+from sqlalchemy import any_
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
@@ -936,7 +936,7 @@ def query_articles(
     if min_score is not None:
         query = query.filter(Article.score >= min_score)
     if source:
-        query = query.filter(Article.sources.any(source))
+        query = query.filter(source == any_(Article.sources))
 
     if sort == "posted_at_desc":
         query = query.order_by(Article.posted_at.desc())
