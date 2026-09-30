@@ -1,4 +1,5 @@
 import logging
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
@@ -9,9 +10,16 @@ from app.routes import articles
 
 logger = logging.getLogger("hn_capstone")
 
-Base.metadata.create_all(engine)
 
-app = FastAPI(title="Hacker News Backend Aggregator")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Runs on server startup, not at import time -- so importing app.main (as the
+    # route tests do, via TestClient without a `with` block) never touches the dev DB.
+    Base.metadata.create_all(engine)
+    yield
+
+
+app = FastAPI(title="Hacker News Backend Aggregator", lifespan=lifespan)
 app.include_router(articles.router)
 
 
