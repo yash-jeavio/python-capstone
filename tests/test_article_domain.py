@@ -43,8 +43,9 @@ def test_merge_batch_combines_sources_for_duplicate_id_in_same_batch():
     raw_best = {"id": 5, "title": "Popular", "by": "x", "score": 15,
                 "descendants": 2, "type": "story", "time": 1700000000}
 
-    merged = merge_batch([(raw_top, "top"), (raw_best, "best")])
+    merged, skipped = merge_batch([(raw_top, "top"), (raw_best, "best")])
 
+    assert skipped == 0
     assert len(merged) == 1
     assert merged[0]["id"] == 5
     assert sorted(merged[0]["sources"]) == ["best", "top"]
@@ -59,6 +60,67 @@ def test_merge_batch_keeps_distinct_ids_separate():
     raw_b = {"id": 2, "title": "B", "by": "y", "score": 2, "descendants": 0,
              "type": "story", "time": 1700000000}
 
-    merged = merge_batch([(raw_a, "top"), (raw_b, "top")])
+    merged, skipped = merge_batch([(raw_a, "top"), (raw_b, "top")])
 
+    assert skipped == 0
     assert {item["id"] for item in merged} == {1, 2}
+
+
+def _story(item_id, **overrides):
+    raw = {"id": item_id, "title": f"Story {item_id}", "by": "x", "score": 1,
+           "descendants": 0, "type": "story", "time": 1700000000}
+    raw.update(overrides)
+    return raw
+
+
+def test_merge_batch_skips_deleted_item():
+    merged, skipped = merge_batch([({"id": 123, "deleted": True}, "top")])
+
+    assert merged == []
+    assert skipped == 1
+
+
+def test_merge_batch_skips_dead_item():
+    merged, skipped = merge_batch([(_story(7, dead=True), "top")])
+
+    assert merged == []
+    assert skipped == 1
+
+
+def test_merge_batch_skips_item_missing_title():
+    raw = _story(8)
+    del raw["title"]
+
+    merged, skipped = merge_batch([(raw, "top")])
+
+    assert merged == []
+    assert skipped == 1
+
+
+def test_merge_batch_skips_item_missing_time():
+    raw = _story(9)
+    del raw["time"]
+
+    merged, skipped = merge_batch([(raw, "top")])
+
+    assert merged == []
+    assert skipped == 1
+
+
+def test_merge_batch_counts_skipped_items_mixed_with_normal_items():
+    no_title = _story(4)
+    del no_title["title"]
+    items = [
+        (_story(1), "top"),
+        ({"id": 2, "deleted": True}, "top"),
+        (_story(3, dead=True), "best"),
+        (no_title, "ask"),
+        (_story(1), "best"),  # duplicate of a valid item: merged, not skipped
+        (_story(5), "show"),
+    ]
+
+    merged, skipped = merge_batch(items)
+
+    assert skipped == 3
+    assert {item["id"] for item in merged} == {1, 5}
+    assert sorted(next(m for m in merged if m["id"] == 1)["sources"]) == ["best", "top"]

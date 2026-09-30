@@ -89,6 +89,48 @@ def test_get_articles_rejects_non_positive_page_size(db_session):
     app.dependency_overrides.clear()
 
 
+def test_get_articles_rejects_negative_min_score(db_session):
+    app.dependency_overrides[get_db] = _override_get_db(db_session)
+    client = TestClient(app)
+
+    response = client.get("/articles", params={"min_score": -1})
+
+    assert response.status_code == 422
+    app.dependency_overrides.clear()
+
+
+def test_get_articles_rejects_unknown_source(db_session):
+    app.dependency_overrides[get_db] = _override_get_db(db_session)
+    client = TestClient(app)
+
+    response = client.get("/articles", params={"source": "nonsense"})
+
+    assert response.status_code == 422
+    app.dependency_overrides.clear()
+
+
+def test_get_articles_rejects_unknown_sort(db_session):
+    app.dependency_overrides[get_db] = _override_get_db(db_session)
+    client = TestClient(app)
+
+    response = client.get("/articles", params={"sort": "invalid_value"})
+
+    assert response.status_code == 422
+    app.dependency_overrides.clear()
+
+
+def test_get_articles_accepts_valid_source_and_sort(db_session):
+    _seed(db_session)
+    app.dependency_overrides[get_db] = _override_get_db(db_session)
+    client = TestClient(app)
+
+    response = client.get("/articles", params={"source": "ask", "sort": "posted_at_desc"})
+
+    assert response.status_code == 200
+    assert [a["id"] for a in response.json()] == [2]
+    app.dependency_overrides.clear()
+
+
 def test_refresh_upserts_and_reports_failures(db_session):
     app.dependency_overrides[get_db] = _override_get_db(db_session)
     client = TestClient(app)
@@ -96,6 +138,9 @@ def test_refresh_upserts_and_reports_failures(db_session):
     fake_items = [
         ({"id": 10, "title": "New story", "by": "z", "score": 1,
           "descendants": 0, "type": "story", "time": 1700000000}, "top"),
+        ({"id": 11, "deleted": True}, "top"),  # skipped by merge_batch
+        ({"id": 12, "title": "Flagged", "type": "story",
+          "time": 1700000000, "dead": True}, "best"),  # skipped by merge_batch
     ]
 
     with patch("app.routes.articles.fetch_all", new=AsyncMock(return_value=(fake_items, 3))):
@@ -103,8 +148,11 @@ def test_refresh_upserts_and_reports_failures(db_session):
 
     assert response.status_code == 200
     body = response.json()
-    assert body == {"fetched": 1, "created": 1, "updated": 0, "failed": 3}
+    # failed = 3 network failures + 2 skipped (deleted/dead) items
+    assert body == {"fetched": 1, "created": 1, "updated": 0, "failed": 5}
     assert db_session.get(Article, 10) is not None
+    assert db_session.get(Article, 11) is None
+    assert db_session.get(Article, 12) is None
     app.dependency_overrides.clear()
 
 

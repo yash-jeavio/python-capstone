@@ -15,10 +15,28 @@ def normalize_item(raw_item: dict, source: str) -> dict:
     }
 
 
-def merge_batch(items: list[tuple[dict, str]]) -> list[dict]:
+def is_skippable(raw_item: dict) -> bool:
+    # Deleted/dead HN items (e.g. {"id": 123, "deleted": true}) and items with no
+    # title/time are not real articles -- unlike url/score/descendants there is no
+    # sensible default for these, so they are skipped rather than normalized.
+    return bool(
+        raw_item.get("deleted")
+        or raw_item.get("dead")
+        or "title" not in raw_item
+        or "time" not in raw_item
+    )
+
+
+def merge_batch(items: list[tuple[dict, str]]) -> tuple[list[dict], int]:
+    """Normalize and merge a batch. Returns (merged_articles, skipped_count)."""
     merged: dict[int, dict] = {}
+    skipped = 0
 
     for raw_item, source in items:
+        if is_skippable(raw_item):
+            skipped += 1
+            continue
+
         normalized = normalize_item(raw_item, source)
         item_id = normalized["id"]
 
@@ -30,4 +48,4 @@ def merge_batch(items: list[tuple[dict, str]]) -> list[dict]:
             existing["score"] = normalized["score"]
             existing["comment_count"] = normalized["comment_count"]
 
-    return list(merged.values())
+    return list(merged.values()), skipped

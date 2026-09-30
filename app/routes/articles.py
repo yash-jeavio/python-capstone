@@ -1,3 +1,5 @@
+from typing import Literal
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
@@ -14,8 +16,8 @@ router = APIRouter()
 def list_articles(
     keyword: str | None = None,
     min_score: int | None = Query(default=None, ge=0),
-    source: str | None = None,
-    sort: str = "score_desc",
+    source: Literal["top", "best", "ask", "show"] | None = None,
+    sort: Literal["score_desc", "posted_at_desc"] = "score_desc",
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
     db: Session = Depends(get_db),
@@ -47,7 +49,12 @@ def get_article(article_id: int, db: Session = Depends(get_db)):
 
 @router.post("/articles/refresh")
 async def refresh_articles(db: Session = Depends(get_db)):
-    items_with_source, failed = await fetch_all()
-    merged = merge_batch(items_with_source)
+    items_with_source, network_failed = await fetch_all()
+    merged, skipped = merge_batch(items_with_source)
     created, updated = upsert_articles(db, merged)
-    return {"fetched": len(merged), "created": created, "updated": updated, "failed": failed}
+    # A deleted/dead/malformed item never became a storable article, so from the
+    # caller's perspective it counts as a failure alongside network failures.
+    return {
+        "fetched": len(merged), "created": created, "updated": updated,
+        "failed": network_failed + skipped,
+    }
