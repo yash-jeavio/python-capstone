@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import any_
+from sqlalchemy import any_, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
@@ -30,7 +30,14 @@ def upsert_articles(session: Session, articles: list[dict]) -> tuple[int, int]:
             "author": stmt.excluded.author,
             "score": stmt.excluded.score,
             "comment_count": stmt.excluded.comment_count,
-            "sources": stmt.excluded.sources,
+            # Historical union: every HN list this article has ever appeared in,
+            # across all refreshes -- not just the lists from this refresh.
+            # Raw SQL on purpose: SQLAlchemy won't correlate a subquery inside
+            # ON CONFLICT ... SET and instead emits `FROM articles, articles AS
+            # excluded`, a cross join over the whole table.
+            "sources": text(
+                "array(select distinct unnest(articles.sources || excluded.sources))"
+            ),
             "fetched_at": stmt.excluded.fetched_at,
         },
     )
@@ -61,9 +68,9 @@ def query_articles(
         query = query.filter(source == any_(Article.sources))
 
     if sort == "posted_at_desc":
-        query = query.order_by(Article.posted_at.desc())
+        query = query.order_by(Article.posted_at.desc(), Article.id.desc())
     else:
-        query = query.order_by(Article.score.desc())
+        query = query.order_by(Article.score.desc(), Article.id.desc())
 
     offset = (page - 1) * page_size
     return query.offset(offset).limit(page_size).all()

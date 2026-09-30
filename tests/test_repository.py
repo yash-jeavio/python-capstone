@@ -65,6 +65,49 @@ def test_upsert_updates_existing_article_on_conflict(db_session):
     assert sorted(refreshed.sources) == ["best", "top"]
 
 
+def test_upsert_unions_sources_across_refreshes(db_session):
+    # Refresh 1: article is on "top". Refresh 2: it dropped off "top", now on "best".
+    upsert_articles(db_session, [_article_dict(sources=["top"])])
+    upsert_articles(db_session, [_article_dict(sources=["best"])])
+
+    db_session.expire_all()
+    refreshed = db_session.get(Article, 1)
+    assert set(refreshed.sources) == {"top", "best"}
+    assert len(refreshed.sources) == 2  # deduplicated, nothing dropped
+
+    # Re-seeing an already-recorded list must not introduce duplicates.
+    upsert_articles(db_session, [_article_dict(sources=["top", "best"])])
+    db_session.expire_all()
+    refreshed = db_session.get(Article, 1)
+    assert sorted(refreshed.sources) == ["best", "top"]
+
+
+def test_query_articles_breaks_score_ties_by_id_across_pages(db_session):
+    upsert_articles(
+        db_session,
+        [_article_dict(id=i, title=f"T{i}", score=10) for i in range(1, 6)],
+    )
+
+    pages = [
+        query_articles(
+            db_session, keyword=None, min_score=None, source=None,
+            sort="score_desc", page=p, page_size=2,
+        )
+        for p in (1, 2, 3)
+    ]
+
+    assert [[a.id for a in page] for page in pages] == [[5, 4], [3, 2], [1]]
+
+
+def test_article_timestamps_are_timezone_aware(db_session):
+    upsert_articles(db_session, [_article_dict()])
+
+    db_session.expire_all()
+    fetched = db_session.get(Article, 1)
+    assert fetched.posted_at.utcoffset() is not None
+    assert fetched.fetched_at.utcoffset() is not None
+
+
 def test_upsert_is_idempotent_when_rerun_with_same_data(db_session):
     upsert_articles(db_session, [_article_dict()])
     created, updated = upsert_articles(db_session, [_article_dict()])

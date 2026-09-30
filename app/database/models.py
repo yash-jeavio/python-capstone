@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import ARRAY, String
+from sqlalchemy import ARRAY, DateTime, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database.session import Base
@@ -17,8 +17,8 @@ class Article(Base):
     comment_count: Mapped[int] = mapped_column(default=0)
     item_type: Mapped[str] = mapped_column(String, nullable=False)
     sources: Mapped[list[str]] = mapped_column(ARRAY(String), nullable=False)
-    posted_at: Mapped[datetime] = mapped_column(nullable=False)
-    fetched_at: Mapped[datetime] = mapped_column(nullable=False)
+    posted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
     def __repr__(self) -> str:
         return f"Article(id={self.id}, title={self.title!r}, sources={self.sources})"
