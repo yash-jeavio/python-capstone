@@ -107,6 +107,16 @@ def test_merge_batch_skips_item_missing_time():
     assert skipped == 1
 
 
+def test_merge_batch_skips_item_missing_type():
+    raw = _story(10)
+    del raw["type"]
+
+    merged, skipped = merge_batch([(raw, "top")])
+
+    assert merged == []
+    assert skipped == 1
+
+
 def test_merge_batch_counts_skipped_items_mixed_with_normal_items():
     no_title = _story(4)
     del no_title["title"]

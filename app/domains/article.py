@@ -17,13 +17,14 @@ def normalize_item(raw_item: dict, source: str) -> dict:
 
 def is_skippable(raw_item: dict) -> bool:
     # Deleted/dead HN items (e.g. {"id": 123, "deleted": true}) and items with no
-    # title/time are not real articles -- unlike url/score/descendants there is no
-    # sensible default for these, so they are skipped rather than normalized.
+    # title/time/type are not real articles -- unlike url/score/descendants there is
+    # no sensible default for these, so they are skipped rather than normalized.
     return bool(
         raw_item.get("deleted")
         or raw_item.get("dead")
         or "title" not in raw_item
         or "time" not in raw_item
+        or "type" not in raw_item
     )
 
 
