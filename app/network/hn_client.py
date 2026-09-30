@@ -17,7 +17,10 @@ async def fetch_item(client: httpx.AsyncClient, item_id: int) -> dict | None:
         response = await client.get(f"{BASE_URL}/item/{item_id}.json")
         response.raise_for_status()
         return response.json()
-    except (httpx.TimeoutException, httpx.HTTPStatusError, httpx.ConnectError):
+    except (httpx.HTTPError, ValueError):
+        # httpx.HTTPError covers timeouts, connect/read/write errors, protocol
+        # errors and 4xx/5xx; ValueError covers a malformed JSON body. Best-effort:
+        # one bad item must never abort the whole refresh.
         return None
 
 

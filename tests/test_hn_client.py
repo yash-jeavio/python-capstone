@@ -51,6 +51,41 @@ async def test_fetch_item_returns_none_on_failure():
 
 
 @pytest.mark.asyncio
+async def test_fetch_item_returns_none_on_remote_protocol_error():
+    mock_client = AsyncMock(spec=httpx.AsyncClient)
+    mock_client.get.side_effect = httpx.RemoteProtocolError("Server disconnected")
+
+    result = await fetch_item(mock_client, 1)
+
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_fetch_item_returns_none_on_http_status_error():
+    mock_client = AsyncMock(spec=httpx.AsyncClient)
+    request = httpx.Request("GET", f"{BASE_URL}/item/1.json")
+    mock_client.get.side_effect = httpx.HTTPStatusError(
+        "503 Service Unavailable", request=request, response=httpx.Response(503, request=request)
+    )
+
+    result = await fetch_item(mock_client, 1)
+
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_fetch_item_returns_none_on_malformed_json_body():
+    mock_client = AsyncMock(spec=httpx.AsyncClient)
+    mock_client.get.return_value = httpx.Response(
+        200, content=b"<html>not json</html>", request=httpx.Request("GET", "https://example.com")
+    )
+
+    result = await fetch_item(mock_client, 1)
+
+    assert result is None
+
+
+@pytest.mark.asyncio
 async def test_fetch_all_counts_failures_without_aborting_batch():
     mock_client = AsyncMock(spec=httpx.AsyncClient)
 
