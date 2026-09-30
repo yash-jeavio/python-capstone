@@ -17,7 +17,7 @@ services:
       POSTGRES_PASSWORD: hn_password
       POSTGRES_DB: hn_capstone_test
     ports:
-      - "5433:5432"
+      - "5434:5432"
     # no volume — disposable, wiped every time the container is recreated
 
 volumes:

@@ -129,7 +129,7 @@ __pycache__/
 
 ```
 DATABASE_URL=postgresql+psycopg2://hn_user:hn_password@localhost:5432/hn_capstone
-TEST_DATABASE_URL=postgresql+psycopg2://hn_user:hn_password@localhost:5433/hn_capstone_test
+TEST_DATABASE_URL=postgresql+psycopg2://hn_user:hn_password@localhost:5434/hn_capstone_test
 ```
 
 - [ ] **Step 4: Create `README.md`**
@@ -143,7 +143,7 @@ and exposes them through a filterable REST API. No AI features (see Phase 2).
 ## Setup
 
 1. Copy `.env.example` to `.env`.
-2. `docker compose up -d` — starts dev Postgres (5432) and test Postgres (5433).
+2. `docker compose up -d` — starts dev Postgres (5432) and test Postgres (5434).
 3. `uv sync` — installs dependencies.
 4. `uv run uvicorn app.main:app --reload` — starts the API at http://127.0.0.1:8000.
 5. `uv run pytest` — runs the test suite (uses the test Postgres container).
@@ -204,7 +204,7 @@ services:
       POSTGRES_PASSWORD: hn_password
       POSTGRES_DB: hn_capstone_test
     ports:
-      - "5433:5432"
+      - "5434:5432"
     # no volume — disposable, wiped every time the container is recreated
 
 volumes:
