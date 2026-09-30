@@ -861,18 +861,16 @@ def test_query_articles_filters_by_source_and_paginates(db_session):
     assert [a.id for a in page_2] == [1]
 ```
 
-- [ ] **Step 2: Add the `Article` import at the top of `tests/test_repository.py`**
+- [ ] **Step 2: Run tests to verify they fail**
 
-```python
-from app.database.models import Article
-```
-
-- [ ] **Step 3: Run tests to verify they fail**
+Note: `tests/test_repository.py` already imports `Article`, `datetime`, and `timezone` at
+the top (added in Task 3, for the round-trip test) — the new tests above reuse those same
+imports; do not add a second copy.
 
 Run: `uv run pytest tests/test_repository.py -v`
 Expected: FAIL with `ModuleNotFoundError: No module named 'app.database.repository'`
 
-- [ ] **Step 4: Implement `app/database/repository.py`**
+- [ ] **Step 3: Implement `app/database/repository.py`**
 
 ```python
 from datetime import datetime, timezone
@@ -946,12 +944,12 @@ def query_articles(
     return query.offset(offset).limit(page_size).all()
 ```
 
-- [ ] **Step 5: Run tests to verify they pass**
+- [ ] **Step 4: Run tests to verify they pass**
 
 Run: `uv run pytest tests/test_repository.py -v`
 Expected: PASS (all tests, including the Task 3 round-trip test)
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
 git add app/database/repository.py tests/test_repository.py
