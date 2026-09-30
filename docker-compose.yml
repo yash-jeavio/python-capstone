@@ -6,7 +6,7 @@ services:
       POSTGRES_PASSWORD: hn_password
       POSTGRES_DB: hn_capstone
     ports:
-      - "5432:5432"
+      - "5435:5432"
     volumes:
       - hn_db_data:/var/lib/postgresql/data
 

@@ -128,7 +128,7 @@ __pycache__/
 - [ ] **Step 3: Create `.env.example`**
 
 ```
-DATABASE_URL=postgresql+psycopg2://hn_user:hn_password@localhost:5432/hn_capstone
+DATABASE_URL=postgresql+psycopg2://hn_user:hn_password@localhost:5435/hn_capstone
 TEST_DATABASE_URL=postgresql+psycopg2://hn_user:hn_password@localhost:5434/hn_capstone_test
 ```
 
@@ -143,7 +143,7 @@ and exposes them through a filterable REST API. No AI features (see Phase 2).
 ## Setup
 
 1. Copy `.env.example` to `.env`.
-2. `docker compose up -d` — starts dev Postgres (5432) and test Postgres (5434).
+2. `docker compose up -d` — starts dev Postgres (host port 5435 -> container 5432) and test Postgres (host port 5434 -> container 5432). Non-standard host ports are deliberate: this machine already has a native Homebrew Postgres service bound to localhost:5432 from an earlier project, so these containers avoid it entirely.
 3. `uv sync` — installs dependencies.
 4. `uv run uvicorn app.main:app --reload` — starts the API at http://127.0.0.1:8000.
 5. `uv run pytest` — runs the test suite (uses the test Postgres container).
@@ -193,7 +193,7 @@ services:
       POSTGRES_PASSWORD: hn_password
       POSTGRES_DB: hn_capstone
     ports:
-      - "5432:5432"
+      - "5435:5432"
     volumes:
       - hn_db_data:/var/lib/postgresql/data
 
