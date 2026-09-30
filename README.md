@@ -6,7 +6,7 @@ and exposes them through a filterable REST API. No AI features (see Phase 2).
 ## Setup
 
 1. Copy `.env.example` to `.env`.
-2. `docker compose up -d` — starts dev Postgres (5432) and test Postgres (5433).
+2. `docker compose up -d` — starts dev Postgres (5435) and test Postgres (5434).
 3. `uv sync` — installs dependencies.
 4. `uv run uvicorn app.main:app --reload` — starts the API at http://127.0.0.1:8000.
 5. `uv run pytest` — runs the test suite (uses the test Postgres container).
