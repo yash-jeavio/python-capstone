@@ -102,8 +102,8 @@ One table: `articles`.
 | `comment_count` | `INTEGER`, default 0 | HN's `descendants` field |
 | `item_type` | `TEXT`, not null | HN's own `type` field (`story`, `job`, etc.) |
 | `sources` | `ARRAY(TEXT)`, not null | Every HN list this article has **ever** appeared in, across all refreshes (historical, not "currently on") — e.g. an article seen in `top` last week and `best` today has `['top', 'best']` even if it's since dropped off `top`. Native Postgres array column. To find what's *currently* trending, filter/sort by `fetched_at` instead. |
-| `posted_at` | `TIMESTAMP`, not null | Converted from HN's raw Unix `time` field |
-| `fetched_at` | `TIMESTAMP`, not null | When our system last refreshed this row |
+| `posted_at` | `TIMESTAMPTZ`, not null | Converted from HN's raw Unix `time` field |
+| `fetched_at` | `TIMESTAMPTZ`, not null | When our system last refreshed this row |
 
 **Upsert behavior**: `INSERT ... ON CONFLICT (id) DO UPDATE` — an article appearing in multiple HN lists (e.g. both `top` and `best`) becomes one row with a merged `sources` array, not duplicate rows.
 
