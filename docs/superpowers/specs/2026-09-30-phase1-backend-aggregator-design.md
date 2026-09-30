@@ -101,7 +101,7 @@ One table: `articles`.
 | `score` | `INTEGER`, default 0 | Updated on every refresh |
 | `comment_count` | `INTEGER`, default 0 | HN's `descendants` field |
 | `item_type` | `TEXT`, not null | HN's own `type` field (`story`, `job`, etc.) |
-| `sources` | `ARRAY(TEXT)`, not null | Which HN list(s) this article came from, e.g. `['top', 'best']`. Native Postgres array column. |
+| `sources` | `ARRAY(TEXT)`, not null | Every HN list this article has **ever** appeared in, across all refreshes (historical, not "currently on") — e.g. an article seen in `top` last week and `best` today has `['top', 'best']` even if it's since dropped off `top`. Native Postgres array column. To find what's *currently* trending, filter/sort by `fetched_at` instead. |
 | `posted_at` | `TIMESTAMP`, not null | Converted from HN's raw Unix `time` field |
 | `fetched_at` | `TIMESTAMP`, not null | When our system last refreshed this row |
 
