@@ -9,7 +9,7 @@ from app.database.session import Base
 class Article(Base):
     __tablename__ = "articles"
 
-    id: Mapped[int] = mapped_column(primary_key=True)  # HN's own item id
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=False)  # HN's own item id
     title: Mapped[str] = mapped_column(String, nullable=False)
     url: Mapped[str | None] = mapped_column(String, nullable=True)
     author: Mapped[str | None] = mapped_column(String, nullable=True)
