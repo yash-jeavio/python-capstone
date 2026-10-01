@@ -1900,8 +1900,10 @@ RUN pip install uv
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev
 COPY app ./app
-CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["/app/.venv/bin/uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
 ```
+
+`CMD` invokes uvicorn directly from the build-time venv rather than via `uv run` — `uv run` performs an implicit sync-on-run against the full `pyproject.toml` (including dev dependencies), which would re-install dev deps and require network access on every container start, defeating the point of `--frozen --no-dev` at build time.
 
 - [ ] **Step 2: Build the image**
 
