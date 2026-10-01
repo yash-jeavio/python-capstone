@@ -32,6 +32,8 @@ describe("apiFetch", () => {
 
     const error = await apiFetch("/missing").catch((e) => e);
     expect(error).toBeInstanceOf(ApiError);
-    expect(error.status).toBe(404);
+    if (error instanceof ApiError) {
+      expect(error.status).toBe(404);
+    }
   });
 });
