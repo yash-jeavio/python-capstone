@@ -16,7 +16,7 @@
 - The three AI endpoints (`GET /articles/{id}/summary`, `GET /articles/{id}/related`, `POST /chat/ask`) must treat a `404`/`501`/network error as "not available" (render `ComingSoonBadge`), and must NOT treat any other status (e.g. `500`) that way — those still throw and surface as a real error.
 - No E2E test suite (Cypress/Playwright) this phase — component/unit tests plus one manual full-stack smoke test only.
 - `test-db` (existing compose service) stays dev-only for `pytest` — it is not part of the "run the app" path and is not touched by this plan.
-- The backend's in-Docker `DATABASE_URL` is set via `docker-compose.yml`'s `environment:` block, not `.env` — local non-Docker dev (`uv run uvicorn ...` against `localhost:5435`) must keep working unmodified.
+- The backend's in-Docker `DATABASE_URL` and `TEST_DATABASE_URL` are set via `docker-compose.yml`'s `environment:` block, not `.env` — local non-Docker dev (`uv run uvicorn ...` against `localhost:5435`) must keep working unmodified. Both vars are required because `app/database/session.py` builds its engine from `get_settings()` at import time, and the `Settings` model requires both fields even though only `database_url` is ever actually used by the running app.
 - Frontend language is TypeScript throughout; styling is Tailwind CSS utility classes, no separate hand-written stylesheets beyond the Tailwind entrypoint.
 
 ## Review Focus
@@ -59,7 +59,7 @@ This task has no business logic, so it's verified by the build succeeding rather
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc && vite build",
     "preview": "vite preview",
     "test": "vitest run"
   },
@@ -1910,8 +1910,10 @@ Expected: builds successfully.
 
 - [ ] **Step 3: Verify the app imports cleanly without a database connection**
 
-Run: `docker run --rm hn-backend uv run python -c "import app.main; print('ok')"`
-Expected: prints `ok` (confirms the image has correct dependencies/code; this works without a DB because `app.main` only creates tables inside the `lifespan` startup hook, not at import time).
+`app/database/session.py` builds its SQLAlchemy engine at import time from `get_settings()`, which requires both `DATABASE_URL` and `TEST_DATABASE_URL` env vars to be set (even though engine creation itself is lazy and never actually connects). Pass placeholder values for this check:
+
+Run: `docker run --rm -e DATABASE_URL=postgresql+psycopg2://placeholder/placeholder -e TEST_DATABASE_URL=postgresql+psycopg2://placeholder/placeholder-test hn-backend uv run python -c "import app.main; print('ok')"`
+Expected: prints `ok` (confirms the image has correct dependencies/code; this works without a reachable DB because SQLAlchemy's `create_engine` is lazy, and `app.main` only creates tables inside the `lifespan` startup hook, not at import time).
 
 - [ ] **Step 4: Commit**
 
@@ -2003,6 +2005,7 @@ Add these two services to the existing file (keep `db` and `test-db` exactly as 
     build: .
     environment:
       DATABASE_URL: postgresql+psycopg2://hn_user:hn_password@db:5432/hn_capstone
+      TEST_DATABASE_URL: postgresql+psycopg2://hn_user:hn_password@test-db:5432/hn_capstone_test
     depends_on:
       - db
     ports:
@@ -2045,6 +2048,7 @@ services:
     build: .
     environment:
       DATABASE_URL: postgresql+psycopg2://hn_user:hn_password@db:5432/hn_capstone
+      TEST_DATABASE_URL: postgresql+psycopg2://hn_user:hn_password@test-db:5432/hn_capstone_test
     depends_on:
       - db
     ports:
