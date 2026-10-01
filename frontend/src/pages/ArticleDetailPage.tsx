@@ -45,7 +45,7 @@ export function ArticleDetailPage() {
       <h1 className="mt-2 text-2xl font-bold">{article.title}</h1>
       <div className="mt-1 text-sm text-gray-500">
         {article.author ?? "unknown"} · {article.score} points · {article.comment_count} comments ·{" "}
-        {article.item_type}
+        {article.item_type} · {new Date(article.posted_at).toLocaleDateString()}
       </div>
       {article.url && (
         <a href={article.url} target="_blank" rel="noreferrer" className="mt-1 block text-blue-600 hover:underline">

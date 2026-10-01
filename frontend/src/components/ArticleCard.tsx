@@ -9,7 +9,8 @@ export function ArticleCard({ article }: { article: Article }) {
         {article.title}
       </Link>
       <div className="mt-1 text-sm text-gray-500">
-        {article.author ?? "unknown"} · {article.score} points · {article.comment_count} comments
+        {article.author ?? "unknown"} · {article.score} points · {article.comment_count} comments ·{" "}
+        {new Date(article.posted_at).toLocaleDateString()}
       </div>
       <div className="mt-1 flex gap-1">
         {article.sources.map((source) => (

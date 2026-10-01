@@ -1,0 +1,10 @@
+.git
+.claude
+.venv
+.pytest_cache
+frontend
+docs
+tests
+__pycache__
+*.pyc
+.superpowers

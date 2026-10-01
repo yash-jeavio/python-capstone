@@ -32,4 +32,15 @@ describe("AskAiPage", () => {
     fireEvent.click(screen.getByText("Send"));
     await waitFor(() => expect(screen.getByText(/coming in Phase 2/)).toBeInTheDocument());
   });
+
+  it("shows an error message and re-enables the button when askQuestion rejects", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 500 }));
+    render(<AskAiPage />);
+    fireEvent.change(screen.getByPlaceholderText("Ask a question..."), {
+      target: { value: "What is trending?" },
+    });
+    fireEvent.click(screen.getByText("Send"));
+    await waitFor(() => expect(screen.getByText("Something went wrong. Please try again.")).toBeInTheDocument());
+    expect(screen.getByText("Send")).not.toBeDisabled();
+  });
 });

@@ -14,15 +14,23 @@ export function AskAiPage() {
 
   async function handleSend() {
     const trimmed = question.trim();
-    if (!trimmed) return;
+    if (!trimmed || isAsking) return;
     setIsAsking(true);
     setQuestion("");
-    const result = await askQuestion(trimmed);
-    setTurns((prev) => [
-      ...prev,
-      { question: trimmed, answer: result.available ? result.data.answer : null, available: result.available },
-    ]);
-    setIsAsking(false);
+    try {
+      const result = await askQuestion(trimmed);
+      setTurns((prev) => [
+        ...prev,
+        { question: trimmed, answer: result.available ? result.data.answer : null, available: result.available },
+      ]);
+    } catch {
+      setTurns((prev) => [
+        ...prev,
+        { question: trimmed, answer: "Something went wrong. Please try again.", available: true },
+      ]);
+    } finally {
+      setIsAsking(false);
+    }
   }
 
   return (

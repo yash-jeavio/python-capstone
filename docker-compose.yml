@@ -9,6 +9,11 @@ services:
       - "127.0.0.1:5435:5432"
     volumes:
       - hn_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hn_user -d hn_capstone"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
 
   test-db:
     image: postgres:16
@@ -26,7 +31,9 @@ services:
       DATABASE_URL: postgresql+psycopg2://hn_user:hn_password@db:5432/hn_capstone
       TEST_DATABASE_URL: postgresql+psycopg2://hn_user:hn_password@test-db:5432/hn_capstone_test
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+    restart: on-failure
     ports:
       - "127.0.0.1:8000:8000"
 
