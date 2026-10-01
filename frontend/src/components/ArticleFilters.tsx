@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ArticleFilters as Filters, SourceFilter, SortOption } from "../types/article";
 
 export function ArticleFilters({
@@ -9,11 +9,13 @@ export function ArticleFilters({
   onChange: (filters: Filters) => void;
 }) {
   const [keyword, setKeyword] = useState(filters.keyword ?? "");
+  const filtersRef = useRef(filters);
+  filtersRef.current = filters;
 
   useEffect(() => {
     const timeout = setTimeout(() => {
-      if (keyword !== (filters.keyword ?? "")) {
-        onChange({ ...filters, keyword: keyword || undefined, page: 1 });
+      if (keyword !== (filtersRef.current.keyword ?? "")) {
+        onChange({ ...filtersRef.current, keyword: keyword || undefined, page: 1 });
       }
     }, 300);
     return () => clearTimeout(timeout);

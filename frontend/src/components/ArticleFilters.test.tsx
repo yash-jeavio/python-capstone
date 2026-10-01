@@ -34,4 +34,19 @@ describe("ArticleFilters", () => {
     fireEvent.change(screen.getByDisplayValue("All sources"), { target: { value: "top" } });
     expect(onChange).toHaveBeenCalledWith({ source: "top", page: 1 });
   });
+
+  it("uses the latest filters when the debounced keyword change fires, even if another filter changed in between", () => {
+    vi.useFakeTimers();
+    const onChange = vi.fn();
+    const { rerender } = render(<ArticleFilters filters={{}} onChange={onChange} />);
+
+    fireEvent.change(screen.getByPlaceholderText("Search title..."), { target: { value: "rust" } });
+
+    // Simulate an immediate filter change (e.g. min_score) landing before the debounce fires,
+    // which updates the `filters` prop from the parent.
+    rerender(<ArticleFilters filters={{ min_score: 50, page: 1 }} onChange={onChange} />);
+
+    vi.advanceTimersByTime(300);
+    expect(onChange).toHaveBeenLastCalledWith({ min_score: 50, page: 1, keyword: "rust" });
+  });
 });
