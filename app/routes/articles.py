@@ -1,3 +1,4 @@
+import logging
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -9,7 +10,34 @@ from app.database.session import get_db
 from app.domains.article import merge_batch
 from app.network.hn_client import fetch_all
 
+logger = logging.getLogger("hn_capstone")
+
 router = APIRouter()
+
+
+async def run_refresh(db: Session) -> dict:
+    items_with_source, network_failed = await fetch_all()
+    merged, skipped = merge_batch(items_with_source)
+    created, updated = upsert_articles(db, merged)
+    # A deleted/dead/malformed item never became a storable article, so from the
+    # caller's perspective it counts as a failure alongside network failures.
+    return {
+        "fetched": len(merged), "created": created, "updated": updated,
+        "failed": network_failed + skipped,
+    }
+
+
+async def seed_if_empty(db: Session) -> None:
+    # Bootstraps a fresh database so the first visitor sees data immediately,
+    # instead of an empty list until someone clicks Refresh. Only runs once per
+    # empty table -- not on every restart -- so normal dev/redeploy cycles stay
+    # fast and don't hit the real HN API when data already exists.
+    if db.query(Article).count() > 0:
+        return
+    try:
+        await run_refresh(db)
+    except Exception:
+        logger.exception("Initial auto-refresh failed; starting with an empty dataset")
 
 
 @router.get("/articles")
@@ -49,12 +77,4 @@ def get_article(article_id: int, db: Session = Depends(get_db)):
 
 @router.post("/articles/refresh")
 async def refresh_articles(db: Session = Depends(get_db)):
-    items_with_source, network_failed = await fetch_all()
-    merged, skipped = merge_batch(items_with_source)
-    created, updated = upsert_articles(db, merged)
-    # A deleted/dead/malformed item never became a storable article, so from the
-    # caller's perspective it counts as a failure alongside network failures.
-    return {
-        "fetched": len(merged), "created": created, "updated": updated,
-        "failed": network_failed + skipped,
-    }
+    return await run_refresh(db)

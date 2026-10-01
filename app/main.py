@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from starlette.requests import Request
 
-from app.database.session import Base, engine
+from app.database.session import Base, SessionLocal, engine
 from app.routes import articles
 
 logger = logging.getLogger("hn_capstone")
@@ -16,6 +16,8 @@ async def lifespan(app: FastAPI):
     # Runs on server startup, not at import time -- so importing app.main (as the
     # route tests do, via TestClient without a `with` block) never touches the dev DB.
     Base.metadata.create_all(engine)
+    with SessionLocal() as db:
+        await articles.seed_if_empty(db)
     yield
 
 

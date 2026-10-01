@@ -7,6 +7,7 @@ from app.database.models import Article
 from app.database.repository import upsert_articles
 from app.database.session import get_db
 from app.main import app
+from app.routes.articles import seed_if_empty
 
 
 def _override_get_db(db_session):
@@ -154,6 +155,37 @@ def test_refresh_upserts_and_reports_failures(db_session):
     assert db_session.get(Article, 11) is None
     assert db_session.get(Article, 12) is None
     app.dependency_overrides.clear()
+
+
+async def test_seed_if_empty_runs_refresh_when_table_is_empty(db_session):
+    fake_items = [
+        ({"id": 20, "title": "Bootstrap story", "by": "z", "score": 5,
+          "descendants": 1, "type": "story", "time": 1700000000}, "top"),
+    ]
+
+    with patch("app.routes.articles.fetch_all", new=AsyncMock(return_value=(fake_items, 0))):
+        await seed_if_empty(db_session)
+
+    assert db_session.get(Article, 20) is not None
+
+
+async def test_seed_if_empty_skips_refresh_when_table_has_data(db_session):
+    _seed(db_session)
+    fetch_mock = AsyncMock(return_value=([], 0))
+
+    with patch("app.routes.articles.fetch_all", new=fetch_mock):
+        await seed_if_empty(db_session)
+
+    fetch_mock.assert_not_called()
+
+
+async def test_seed_if_empty_swallows_fetch_failure_so_startup_does_not_crash(db_session):
+    with patch(
+        "app.routes.articles.fetch_all", new=AsyncMock(side_effect=RuntimeError("HN unreachable"))
+    ):
+        await seed_if_empty(db_session)  # must not raise
+
+    assert db_session.query(Article).count() == 0
 
 
 def test_unexpected_exception_returns_clean_500(db_session):
