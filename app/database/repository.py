@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import any_, text
+from sqlalchemy import any_, text, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
@@ -84,9 +84,23 @@ def articles_missing_embeddings(session: Session) -> list[Article]:
 def store_embeddings(
     session: Session, pairs: list[tuple[Article, list[float]]]
 ) -> None:
-    """Attach vectors to articles in one transaction."""
+    """Attach vectors to articles in one transaction.
+
+    The backfill reads its `pending` list (embedding IS NULL) before this
+    writes, so another session's write -- e.g. /summary's store_summary,
+    which writes a vector derived from title+summary -- can land in between.
+    The WHERE clause makes this a no-op for any row that is no longer NULL,
+    enforced by Postgres itself rather than a Python `is None` check that
+    cannot see another session's already-committed write.
+    """
     for article, embedding in pairs:
-        article.embedding = embedding
+        result = session.execute(
+            update(Article)
+            .where(Article.id == article.id, Article.embedding.is_(None))
+            .values(embedding=embedding)
+        )
+        if result.rowcount:
+            article.embedding = embedding
     session.commit()
 
 

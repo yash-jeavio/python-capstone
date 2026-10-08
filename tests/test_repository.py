@@ -221,6 +221,28 @@ def test_store_embeddings_persists_vectors(db_session):
     assert db_session.get(Article, 1).embedding[0] == pytest.approx(0.1)
 
 
+def test_store_embeddings_does_not_clobber_a_concurrently_written_embedding(db_session):
+    # Simulates the backfill's race with /summary: `pending` is read while the
+    # row is still NULL, but by the time store_embeddings writes, another
+    # session has already committed a different vector (e.g. store_summary's
+    # title+summary embedding). The guarded UPDATE must leave that vector
+    # alone rather than overwriting it with the stale title-only one.
+    article = _make_article(1, embedding=None)
+    db_session.add(article)
+    db_session.commit()
+
+    winning_vector = [0.9] * 1536
+    store_embeddings(db_session, [(article, winning_vector)])
+    db_session.expire_all()
+    assert db_session.get(Article, 1).embedding[0] == pytest.approx(0.9)
+
+    stale_vector = [0.1] * 1536
+    store_embeddings(db_session, [(article, stale_vector)])
+    db_session.expire_all()
+
+    assert db_session.get(Article, 1).embedding[0] == pytest.approx(0.9)
+
+
 def test_store_summary_persists_summary_timestamp_and_embedding(db_session):
     article = _make_article(1)
     db_session.add(article)
