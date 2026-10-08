@@ -1,45 +1,55 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, expect, it, vi, afterEach } from "vitest";
 import { getSummary, getRelated, askQuestion } from "./ai";
 
 afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("ai api stub handling", () => {
-  it("returns available data when the backend has the endpoint", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({ summary: "short summary" }) })
+function stubFetch(status: number, body: unknown = {}) {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue({
+      ok: status >= 200 && status < 300,
+      status,
+      json: async () => body,
+    })
+  );
+}
+
+describe("ai api", () => {
+  it("returns ok with data on success", async () => {
+    stubFetch(200, { summary: "A summary." });
+    const result = await getSummary(1);
+    expect(result).toEqual({ state: "ok", data: { summary: "A summary." } });
+  });
+
+  it("returns unconfigured on 501", async () => {
+    stubFetch(501);
+    expect(await getSummary(1)).toEqual({ state: "unconfigured" });
+  });
+
+  it("returns failed on 503", async () => {
+    stubFetch(503);
+    expect(await getSummary(1)).toEqual({ state: "failed" });
+  });
+
+  it("returns failed on 404", async () => {
+    stubFetch(404);
+    expect(await getSummary(1)).toEqual({ state: "failed" });
+  });
+
+  it("returns failed on a network error", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("network down")));
+    expect(await getRelated(1)).toEqual({ state: "failed" });
+  });
+
+  it("posts the question to /chat/ask", async () => {
+    stubFetch(200, { answer: "An answer.", sources: [] });
+    const result = await askQuestion("Which is faster?");
+    expect(result).toEqual({ state: "ok", data: { answer: "An answer.", sources: [] } });
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/chat/ask",
+      expect.objectContaining({ method: "POST", body: JSON.stringify({ question: "Which is faster?" }) })
     );
-
-    const result = await getSummary(1);
-    expect(result).toEqual({ available: true, data: { summary: "short summary" } });
-  });
-
-  it("treats a 404 as not available", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 404 }));
-
-    const result = await getSummary(1);
-    expect(result).toEqual({ available: false });
-  });
-
-  it("treats a 501 as not available", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 501 }));
-
-    const result = await getRelated(1);
-    expect(result).toEqual({ available: false });
-  });
-
-  it("treats a network error as not available", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
-
-    const result = await askQuestion("what is trending?");
-    expect(result).toEqual({ available: false });
-  });
-
-  it("rethrows unexpected server errors instead of hiding them", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 500 }));
-
-    await expect(getSummary(1)).rejects.toThrow();
   });
 });

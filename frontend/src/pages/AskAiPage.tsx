@@ -3,8 +3,8 @@ import { askQuestion } from "../api/ai";
 
 interface ChatTurn {
   question: string;
+  state: "ok" | "unconfigured" | "failed";
   answer: string | null;
-  available: boolean;
 }
 
 export function AskAiPage() {
@@ -17,20 +17,16 @@ export function AskAiPage() {
     if (!trimmed || isAsking) return;
     setIsAsking(true);
     setQuestion("");
-    try {
-      const result = await askQuestion(trimmed);
-      setTurns((prev) => [
-        ...prev,
-        { question: trimmed, answer: result.available ? result.data.answer : null, available: result.available },
-      ]);
-    } catch {
-      setTurns((prev) => [
-        ...prev,
-        { question: trimmed, answer: "Something went wrong. Please try again.", available: true },
-      ]);
-    } finally {
-      setIsAsking(false);
-    }
+    const result = await askQuestion(trimmed);
+    setTurns((prev) => [
+      ...prev,
+      {
+        question: trimmed,
+        state: result.state,
+        answer: result.state === "ok" ? result.data.answer : null,
+      },
+    ]);
+    setIsAsking(false);
   }
 
   return (
@@ -41,12 +37,14 @@ export function AskAiPage() {
         {turns.map((turn, index) => (
           <div key={index} className="rounded-lg border border-gray-200 p-3">
             <p className="font-medium">{turn.question}</p>
-            {turn.available ? (
-              <p className="mt-1 text-gray-700">{turn.answer}</p>
-            ) : (
-              <span className="mt-1 inline-block rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-500">
-                Ask AI — coming in Phase 2
-              </span>
+            {turn.state === "ok" && <p className="mt-1 text-gray-700">{turn.answer}</p>}
+            {turn.state === "unconfigured" && (
+              <p className="mt-1 text-sm text-gray-500">AI features are not configured.</p>
+            )}
+            {turn.state === "failed" && (
+              <p className="mt-1 text-sm text-gray-500">
+                Couldn't answer that right now. Please try again.
+              </p>
             )}
           </div>
         ))}
