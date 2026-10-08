@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 from starlette.requests import Request
 
 from app.database.session import SessionLocal
+from app.network.openai_client import AiServiceError
 from app.routes import articles
 
 logger = logging.getLogger("hn_capstone")
@@ -30,6 +31,14 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Hacker News Backend Aggregator", lifespan=lifespan)
 app.include_router(articles.router)
+
+
+@app.exception_handler(AiServiceError)
+async def ai_service_error_handler(request: Request, exc: AiServiceError):
+    logger.warning("AI service unavailable on %s %s: %s", request.method, request.url, exc)
+    return JSONResponse(
+        status_code=503, content={"detail": "AI service temporarily unavailable"}
+    )
 
 
 @app.exception_handler(Exception)
