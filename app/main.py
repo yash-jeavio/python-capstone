@@ -1,21 +1,28 @@
 import logging
 from contextlib import asynccontextmanager
 
+from alembic import command
+from alembic.config import Config
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from starlette.requests import Request
 
-from app.database.session import Base, SessionLocal, engine
+from app.database.session import SessionLocal
 from app.routes import articles
 
 logger = logging.getLogger("hn_capstone")
+
+
+def run_migrations() -> None:
+    # Alembic owns dev/prod schema; tests keep create_all (see conftest).
+    command.upgrade(Config("alembic.ini"), "head")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Runs on server startup, not at import time -- so importing app.main (as the
     # route tests do, via TestClient without a `with` block) never touches the dev DB.
-    Base.metadata.create_all(engine)
+    run_migrations()
     with SessionLocal() as db:
         await articles.seed_if_empty(db)
     yield
