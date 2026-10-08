@@ -1,6 +1,7 @@
 from datetime import datetime
 
-from sqlalchemy import ARRAY, DateTime, String
+from pgvector.sqlalchemy import Vector
+from sqlalchemy import ARRAY, DateTime, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database.session import Base
@@ -19,6 +20,13 @@ class Article(Base):
     sources: Mapped[list[str]] = mapped_column(ARRAY(String), nullable=False)
     posted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    summary_generated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    # 1536 dims is fixed by text-embedding-3-small. NULL is the backfill target.
+    embedding: Mapped[list[float] | None] = mapped_column(Vector(1536), nullable=True)
 
     def __repr__(self) -> str:
         return f"Article(id={self.id}, title={self.title!r}, sources={self.sources})"

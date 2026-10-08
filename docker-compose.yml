@@ -1,6 +1,6 @@
 services:
   db:
-    image: postgres:16
+    image: pgvector/pgvector:pg16
     environment:
       POSTGRES_USER: hn_user
       POSTGRES_PASSWORD: hn_password
@@ -16,7 +16,7 @@ services:
       retries: 15
 
   test-db:
-    image: postgres:16
+    image: pgvector/pgvector:pg16
     environment:
       POSTGRES_USER: hn_user
       POSTGRES_PASSWORD: hn_password
