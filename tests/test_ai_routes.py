@@ -277,3 +277,110 @@ def test_summary_503s_when_the_completion_fails(client, db_session):
         "app.routes.ai.fetch_article_text", new=AsyncMock(return_value="Body.")
     ):
         assert client.get("/articles/1/summary").status_code == 503
+
+
+def test_ask_answers_from_retrieved_articles(client, db_session):
+    db_session.add_all([
+        _article(1, "Rust is fast", embedding=[1.0] + [0.0] * 1535, summary="About Rust."),
+        _article(2, "Go is simple", embedding=[0.0, 1.0] + [0.0] * 1534),
+    ])
+    db_session.commit()
+    client.mock.embeddings.create.return_value = _embedding_response([[1.0] + [0.0] * 1535])
+    client.mock.chat.completions.create.return_value = _chat_response("Rust is faster.")
+
+    response = client.post("/chat/ask", json={"question": "Which is faster?"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["answer"] == "Rust is faster."
+    # sources is the retrieved set that grounded the prompt, nearest first.
+    assert [s["id"] for s in body["sources"]] == [1, 2]
+
+
+def test_ask_embeds_the_question(client, db_session):
+    db_session.add(_article(1, "a", embedding=[1.0] + [0.0] * 1535))
+    db_session.commit()
+    client.mock.embeddings.create.return_value = _embedding_response([[1.0] + [0.0] * 1535])
+    client.mock.chat.completions.create.return_value = _chat_response("An answer.")
+
+    client.post("/chat/ask", json={"question": "Which is faster?"})
+
+    assert client.mock.embeddings.create.await_args.kwargs["input"] == ["Which is faster?"]
+
+
+def test_ask_backfills_embeddings_first(client, db_session):
+    db_session.add_all([_article(1, "a"), _article(2, "b")])
+    db_session.commit()
+    client.mock.embeddings.create.side_effect = [
+        _embedding_response([[1.0] + [0.0] * 1535, [0.5] * 1536]),  # backfill
+        _embedding_response([[1.0] + [0.0] * 1535]),                # question
+    ]
+    client.mock.chat.completions.create.return_value = _chat_response("An answer.")
+
+    response = client.post("/chat/ask", json={"question": "Anything?"})
+
+    assert response.status_code == 200
+    assert client.mock.embeddings.create.await_count == 2
+
+
+def test_ask_includes_the_retrieved_articles_in_the_prompt(client, db_session):
+    db_session.add(_article(1, "Rust is fast", embedding=[1.0] + [0.0] * 1535))
+    db_session.commit()
+    client.mock.embeddings.create.return_value = _embedding_response([[1.0] + [0.0] * 1535])
+    client.mock.chat.completions.create.return_value = _chat_response("An answer.")
+
+    client.post("/chat/ask", json={"question": "Which is faster?"})
+
+    prompt = client.mock.chat.completions.create.await_args.kwargs["messages"][1]["content"]
+    assert "Rust is fast" in prompt
+    assert "Which is faster?" in prompt
+
+
+def test_ask_works_on_an_empty_corpus(client):
+    client.mock.embeddings.create.return_value = _embedding_response([[1.0] + [0.0] * 1535])
+    client.mock.chat.completions.create.return_value = _chat_response("I have no articles.")
+
+    response = client.post("/chat/ask", json={"question": "Anything?"})
+
+    assert response.status_code == 200
+    assert response.json()["sources"] == []
+
+
+@pytest.mark.parametrize("question", ["", "   ", "\n\t "])
+def test_ask_rejects_blank_questions(client, question):
+    # Review Focus 4: an empty string must never reach the embedding API.
+    response = client.post("/chat/ask", json={"question": question})
+
+    assert response.status_code == 422
+    client.mock.embeddings.create.assert_not_awaited()
+
+
+def test_ask_trims_the_question(client, db_session):
+    db_session.add(_article(1, "a", embedding=[1.0] + [0.0] * 1535))
+    db_session.commit()
+    client.mock.embeddings.create.return_value = _embedding_response([[1.0] + [0.0] * 1535])
+    client.mock.chat.completions.create.return_value = _chat_response("An answer.")
+
+    client.post("/chat/ask", json={"question": "  Which is faster?  "})
+
+    assert client.mock.embeddings.create.await_args.kwargs["input"] == ["Which is faster?"]
+
+
+def test_ask_requires_a_question_field(client):
+    assert client.post("/chat/ask", json={}).status_code == 422
+
+
+def test_ask_501s_without_an_api_key(unconfigured_client):
+    response = unconfigured_client.post("/chat/ask", json={"question": "Anything?"})
+    assert response.status_code == 501
+
+
+def test_ask_503s_when_the_completion_fails(client, db_session):
+    db_session.add(_article(1, "a", embedding=[1.0] + [0.0] * 1535))
+    db_session.commit()
+    client.mock.embeddings.create.return_value = _embedding_response([[1.0] + [0.0] * 1535])
+    client.mock.chat.completions.create.side_effect = AiServiceError("boom")
+
+    response = client.post("/chat/ask", json={"question": "Anything?"})
+
+    assert response.status_code == 503

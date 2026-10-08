@@ -3,6 +3,7 @@ import logging
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from openai import AsyncOpenAI
+from pydantic import BaseModel, field_validator
 from sqlalchemy.orm import Session
 
 from app.common.config import Settings, get_settings
@@ -14,7 +15,12 @@ from app.database.repository import (
     store_summary,
 )
 from app.database.session import get_db
-from app.domains.ai import build_embedding_input, build_summary_messages, truncate_content
+from app.domains.ai import (
+    build_chat_messages,
+    build_embedding_input,
+    build_summary_messages,
+    truncate_content,
+)
 from app.network.content_fetcher import fetch_article_text
 from app.network.hn_client import fetch_comments
 from app.network.openai_client import complete, embed_texts, get_openai_client
@@ -127,3 +133,40 @@ async def get_summary(
     store_summary(db, article, summary, vectors[0])
 
     return {"summary": summary}
+
+
+class AskRequest(BaseModel):
+    question: str
+
+    @field_validator("question")
+    @classmethod
+    def question_must_not_be_blank(cls, value: str) -> str:
+        # Returns the trimmed value, so a blank question is a 422 rather than an
+        # empty string sent to the embedding API.
+        trimmed = value.strip()
+        if not trimmed:
+            raise ValueError("question must not be blank")
+        return trimmed
+
+
+@router.post("/chat/ask")
+async def ask(
+    payload: AskRequest,
+    db: Session = Depends(get_db),
+    client: AsyncOpenAI | None = Depends(get_openai_client),
+    settings: Settings = Depends(get_settings),
+):
+    openai = require_client(client)
+    await ensure_embeddings(db, openai, settings)
+
+    question_vectors = await embed_texts(
+        openai, [payload.question], settings.embedding_model
+    )
+    retrieved = find_similar(db, question_vectors[0], limit=RETRIEVAL_LIMIT)
+
+    messages = build_chat_messages(payload.question, retrieved)
+    answer = await complete(openai, messages, settings.openai_model)
+
+    # sources is exactly the set that grounded the prompt -- the model cannot
+    # cite anything it was not given.
+    return {"answer": answer, "sources": [serialize_article(a) for a in retrieved]}
