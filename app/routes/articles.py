@@ -9,6 +9,7 @@ from app.database.repository import query_articles, upsert_articles
 from app.database.session import get_db
 from app.domains.article import merge_batch
 from app.network.hn_client import fetch_all
+from app.routes.serializers import serialize_article
 
 logger = logging.getLogger("hn_capstone")
 
@@ -51,15 +52,7 @@ def list_articles(
     db: Session = Depends(get_db),
 ):
     articles = query_articles(db, keyword, min_score, source, sort, page, page_size)
-    return [
-        {
-            "id": a.id, "title": a.title, "url": a.url, "author": a.author,
-            "score": a.score, "comment_count": a.comment_count,
-            "item_type": a.item_type, "sources": a.sources,
-            "posted_at": a.posted_at.isoformat(),
-        }
-        for a in articles
-    ]
+    return [serialize_article(a) for a in articles]
 
 
 @router.get("/articles/{article_id}")
@@ -67,12 +60,7 @@ def get_article(article_id: int, db: Session = Depends(get_db)):
     article = db.get(Article, article_id)
     if article is None:
         raise HTTPException(status_code=404, detail="Article not found")
-    return {
-        "id": article.id, "title": article.title, "url": article.url,
-        "author": article.author, "score": article.score,
-        "comment_count": article.comment_count, "item_type": article.item_type,
-        "sources": article.sources, "posted_at": article.posted_at.isoformat(),
-    }
+    return serialize_article(article)
 
 
 @router.post("/articles/refresh")
