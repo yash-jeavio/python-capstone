@@ -90,6 +90,16 @@ async def test_complete_raises_on_an_empty_response():
         await complete(client, [{"role": "user", "content": "hi"}], "gpt-4o-mini")
 
 
+async def test_complete_raises_on_a_whitespace_only_response():
+    # A whitespace-only completion would otherwise pass the `if not content`
+    # guard and get cached forever by the /summary route's `is not None` check.
+    client = AsyncMock()
+    client.chat.completions.create.return_value = _chat_response("   \n\t  ")
+
+    with pytest.raises(AiServiceError):
+        await complete(client, [{"role": "user", "content": "hi"}], "gpt-4o-mini")
+
+
 def test_get_openai_client_returns_none_without_a_key(monkeypatch):
     monkeypatch.setattr(
         "app.network.openai_client.get_settings",

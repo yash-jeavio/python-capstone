@@ -47,6 +47,6 @@ async def complete(client: AsyncOpenAI, messages: list[dict], model: str) -> str
         raise AiServiceError("completion request failed") from exc
 
     content = response.choices[0].message.content
-    if not content:
+    if not content or not content.strip():
         raise AiServiceError("completion returned no content")
-    return content
+    return content.strip()
