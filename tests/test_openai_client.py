@@ -6,6 +6,7 @@ from openai import APITimeoutError
 
 from app.network.openai_client import (
     AiServiceError,
+    _build_client,
     complete,
     embed_texts,
     get_openai_client,
@@ -106,3 +107,20 @@ def test_get_openai_client_returns_none_without_a_key(monkeypatch):
         lambda: SimpleNamespace(openai_api_key=None),
     )
     assert get_openai_client() is None
+
+
+def test_get_openai_client_reuses_one_instance_per_api_key(monkeypatch):
+    # A fresh AsyncOpenAI per request means a fresh, never-closed connection
+    # pool each time. The client must be cached and reused instead.
+    _build_client.cache_clear()
+    monkeypatch.setattr(
+        "app.network.openai_client.get_settings",
+        lambda: SimpleNamespace(openai_api_key="test-key"),
+    )
+
+    first = get_openai_client()
+    second = get_openai_client()
+
+    assert first is not None
+    assert first is second
+    _build_client.cache_clear()

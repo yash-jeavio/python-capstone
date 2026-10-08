@@ -1,4 +1,5 @@
 import logging
+from functools import lru_cache
 
 from openai import AsyncOpenAI, OpenAIError
 
@@ -11,13 +12,26 @@ class AiServiceError(Exception):
     """An OpenAI call failed. Mapped to HTTP 503 -- transient, retry may work."""
 
 
+@lru_cache
+def _build_client(api_key: str) -> AsyncOpenAI:
+    """Cached per api_key: one AsyncOpenAI instance (and its connection pool)
+    reused across requests instead of a fresh one constructed -- and never
+    closed -- on every call."""
+    return AsyncOpenAI(api_key=api_key)
+
+
 def get_openai_client() -> AsyncOpenAI | None:
     """FastAPI dependency. Returns None when no API key is configured, which
-    routes translate to 501 (not configured) rather than a failure."""
+    routes translate to 501 (not configured) rather than a failure.
+
+    Settings are re-read on every call -- only the expensive client
+    construction is cached -- so tests that monkeypatch get_settings keep
+    working regardless of call order.
+    """
     settings = get_settings()
     if not settings.openai_api_key:
         return None
-    return AsyncOpenAI(api_key=settings.openai_api_key)
+    return _build_client(settings.openai_api_key)
 
 
 async def embed_texts(client: AsyncOpenAI, texts: list[str], model: str) -> list[list[float]]:
