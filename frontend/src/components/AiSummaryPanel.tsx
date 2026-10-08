@@ -1,13 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { getSummary } from "../api/ai";
 
-export function AiSummaryPanel({
-  articleId,
-  variant = "full",
-}: {
-  articleId: number;
-  variant?: "compact" | "full";
-}) {
+export function AiSummaryPanel({ articleId }: { articleId: number }) {
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["summary", articleId],
     queryFn: () => getSummary(articleId),
@@ -29,9 +23,5 @@ export function AiSummaryPanel({
       </div>
     );
   }
-  return (
-    <p className={variant === "compact" ? "line-clamp-2 text-sm text-gray-600" : "text-base text-gray-700"}>
-      {data.data.summary}
-    </p>
-  );
+  return <p className="text-base text-gray-700">{data.data.summary}</p>;
 }

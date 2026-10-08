@@ -1,6 +1,5 @@
 import { Link } from "react-router-dom";
 import type { Article } from "../types/article";
-import { AiSummaryPanel } from "./AiSummaryPanel";
 
 export function ArticleCard({ article }: { article: Article }) {
   return (
@@ -29,9 +28,6 @@ export function ArticleCard({ article }: { article: Article }) {
           View original ↗
         </a>
       )}
-      <div className="mt-2">
-        <AiSummaryPanel articleId={article.id} variant="compact" />
-      </div>
     </div>
   );
 }

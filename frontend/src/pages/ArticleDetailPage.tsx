@@ -54,7 +54,7 @@ export function ArticleDetailPage() {
       )}
       <section className="mt-6">
         <h2 className="text-lg font-semibold">AI Summary</h2>
-        <AiSummaryPanel articleId={article.id} variant="full" />
+        <AiSummaryPanel articleId={article.id} />
       </section>
       <section className="mt-6">
         <h2 className="text-lg font-semibold">Related Articles</h2>
