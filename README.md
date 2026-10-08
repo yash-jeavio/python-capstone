@@ -56,9 +56,13 @@ Manually smoke-tested end-to-end against the real Hacker News API on 2026-09-30:
 refresh, filtered listing, single-article lookup (including 404), and
 idempotent re-refresh all behave as designed.
 
-Phase 2 AI features verified on 2026-10-08 to the extent possible without an
-OpenAI API key: the full stack builds and starts, migrations apply cleanly, the
-articles list and detail pages work unchanged, and with no key configured the AI
-endpoints return 501 and the UI shows "AI features are not configured" rather
-than an error. Generation, caching, embedding backfill, related articles, and
-grounded chat require a key and remain unverified against the live API.
+Phase 2 AI features manually smoke-tested end-to-end against the real OpenAI API
+on 2026-10-08: unconfigured degradation (501 on all three endpoints with the UI
+reading "AI features are not configured"), on-demand summary generation, the
+permanent summary cache (22.8s first call vs 0.019s cached, zero API calls),
+corpus-wide embedding backfill (358 articles in one batched call, ~4s), related
+articles by cosine similarity, the Ask HN comment fallback for URL-less posts,
+retrieval-grounded chat including a correct refusal when the corpus lacks the
+answer, and the invalid-key path returning 503 while cached summaries keep
+serving. Verified in a real browser that the list page issues exactly one API
+request per load and triggers no summary generation.
