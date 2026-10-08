@@ -252,6 +252,29 @@ def test_find_similar_orders_by_cosine_distance(db_session):
     assert [a.title for a in result] == ["near", "far"]
 
 
+def test_find_similar_uses_cosine_not_l2_or_inner_product(db_session):
+    # Magnitudes are chosen so cosine, L2, and negative-inner-product distance
+    # disagree on the ranking -- do not "simplify" these vectors.
+    #   query   = (1, 0)
+    #   aligned = (0.5, 0)   same direction as query, smaller magnitude
+    #   offset  = (0.9, 0.1) slightly off-direction, larger magnitude
+    # cosine distance:   aligned 0.0    < offset ~0.006  -> aligned first (required)
+    # L2 distance:       offset ~0.141  < aligned 0.5    -> offset first
+    # neg inner product: offset -0.9    < aligned -0.5   -> offset first
+    query_vector = [1.0] + [0.0] * 1535
+    aligned = [0.5, 0.0] + [0.0] * 1534
+    offset = [0.9, 0.1] + [0.0] * 1534
+    db_session.add_all([
+        _make_article(1, title="offset", embedding=offset),
+        _make_article(2, title="aligned", embedding=aligned),
+    ])
+    db_session.commit()
+
+    result = find_similar(db_session, query_vector)
+
+    assert [a.title for a in result] == ["aligned", "offset"]
+
+
 def test_find_similar_excludes_the_given_article(db_session):
     vector = [1.0] + [0.0] * 1535
     db_session.add_all([
