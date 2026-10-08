@@ -74,3 +74,47 @@ def query_articles(
 
     offset = (page - 1) * page_size
     return query.offset(offset).limit(page_size).all()
+
+
+def articles_missing_embeddings(session: Session) -> list[Article]:
+    """Articles with no vector yet -- the backfill target."""
+    return session.query(Article).filter(Article.embedding.is_(None)).all()
+
+
+def store_embeddings(
+    session: Session, pairs: list[tuple[Article, list[float]]]
+) -> None:
+    """Attach vectors to articles in one transaction."""
+    for article, embedding in pairs:
+        article.embedding = embedding
+    session.commit()
+
+
+def store_summary(
+    session: Session, article: Article, summary: str, embedding: list[float]
+) -> None:
+    """Write a summary and its refreshed vector together.
+
+    One transaction on purpose: the vector is derived from title + summary, so a
+    committed summary paired with a stale vector would be an inconsistent state
+    that nothing later repairs (the backfill only looks for NULL embeddings).
+    """
+    article.summary = summary
+    article.summary_generated_at = datetime.now(timezone.utc)
+    article.embedding = embedding
+    session.commit()
+
+
+def find_similar(
+    session: Session,
+    embedding: list[float],
+    limit: int = 5,
+    exclude_id: int | None = None,
+) -> list[Article]:
+    """Nearest articles by cosine distance, computed in Postgres by pgvector."""
+    query = session.query(Article).filter(Article.embedding.is_not(None))
+    if exclude_id is not None:
+        query = query.filter(Article.id != exclude_id)
+    return (
+        query.order_by(Article.embedding.cosine_distance(embedding)).limit(limit).all()
+    )
