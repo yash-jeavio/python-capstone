@@ -9,7 +9,7 @@ from starlette.requests import Request
 
 from app.database.session import SessionLocal
 from app.network.openai_client import AiServiceError
-from app.routes import articles
+from app.routes import ai, articles
 
 logger = logging.getLogger("hn_capstone")
 
@@ -31,6 +31,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Hacker News Backend Aggregator", lifespan=lifespan)
 app.include_router(articles.router)
+app.include_router(ai.router)
 
 
 @app.exception_handler(AiServiceError)
