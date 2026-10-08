@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, patch
 import httpx
 import pytest
 
-from app.network.hn_client import fetch_all, fetch_item, fetch_story_ids
+from app.network.hn_client import fetch_all, fetch_comments, fetch_item, fetch_story_ids
 
 BASE_URL = "https://hacker-news.firebaseio.com/v0"
 
@@ -118,3 +118,58 @@ async def test_fetch_all_counts_failures_without_aborting_batch():
     assert failed_count == 2  # item 2 fails once for "top" and once for "best"
     assert len(items_with_source) == 1
     assert items_with_source[0][0]["id"] == 1
+
+
+async def test_fetch_comments_returns_top_level_comment_text():
+    mock_client = AsyncMock(spec=httpx.AsyncClient)
+    mock_client.get.side_effect = [
+        _mock_response({"id": 1, "kids": [10, 11]}),
+        _mock_response({"id": 10, "text": "First comment"}),
+        _mock_response({"id": 11, "text": "Second comment"}),
+    ]
+
+    result = await fetch_comments(mock_client, 1)
+
+    assert result == ["First comment", "Second comment"]
+
+
+async def test_fetch_comments_respects_the_limit():
+    mock_client = AsyncMock(spec=httpx.AsyncClient)
+    mock_client.get.side_effect = [
+        _mock_response({"id": 1, "kids": list(range(100, 130))}),
+        *[_mock_response({"id": i, "text": f"c{i}"}) for i in range(100, 110)],
+    ]
+
+    result = await fetch_comments(mock_client, 1, limit=10)
+
+    assert len(result) == 10
+
+
+async def test_fetch_comments_skips_deleted_dead_and_textless():
+    mock_client = AsyncMock(spec=httpx.AsyncClient)
+    mock_client.get.side_effect = [
+        _mock_response({"id": 1, "kids": [10, 11, 12, 13]}),
+        _mock_response({"id": 10, "text": "Good"}),
+        _mock_response({"id": 11, "deleted": True}),
+        _mock_response({"id": 12, "dead": True, "text": "Spam"}),
+        _mock_response({"id": 13, "id": 13}),
+    ]
+
+    result = await fetch_comments(mock_client, 1)
+
+    assert result == ["Good"]
+
+
+async def test_fetch_comments_returns_empty_when_story_has_no_kids():
+    # Ask HN posts with no replies, and any story nobody has commented on.
+    mock_client = AsyncMock(spec=httpx.AsyncClient)
+    mock_client.get.return_value = _mock_response({"id": 1, "title": "Lonely"})
+
+    assert await fetch_comments(mock_client, 1) == []
+
+
+async def test_fetch_comments_returns_empty_when_the_story_fetch_fails():
+    mock_client = AsyncMock(spec=httpx.AsyncClient)
+    mock_client.get.side_effect = httpx.ReadTimeout("too slow")
+
+    assert await fetch_comments(mock_client, 1) == []

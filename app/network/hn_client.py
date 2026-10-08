@@ -42,3 +42,31 @@ async def fetch_all(limit_per_list: int = 30) -> tuple[list[tuple[dict, str]], i
                     items_with_source.append((raw_item, source))
 
     return items_with_source, failed_count
+
+
+async def fetch_comments(
+    client: httpx.AsyncClient, item_id: int, limit: int = 10
+) -> list[str]:
+    """Top-level comment bodies for a story, in HN's own `kids` ordering.
+
+    Used as the summarization fallback when a story has no URL (Ask HN, text
+    posts) or its linked page cannot be fetched. Best-effort like fetch_item:
+    an unreachable story or comment yields fewer results, never an exception.
+    """
+    story = await fetch_item(client, item_id)
+    if story is None:
+        return []
+
+    kid_ids = (story.get("kids") or [])[:limit]
+    if not kid_ids:
+        return []
+
+    comments = await asyncio.gather(*(fetch_item(client, kid) for kid in kid_ids))
+    return [
+        comment["text"]
+        for comment in comments
+        if comment
+        and not comment.get("deleted")
+        and not comment.get("dead")
+        and comment.get("text")
+    ]
