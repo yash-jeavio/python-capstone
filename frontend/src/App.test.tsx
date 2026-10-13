@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { App } from "./App";
 
@@ -13,5 +14,21 @@ describe("App", () => {
     expect(screen.getByText("Articles")).toBeInTheDocument();
     expect(screen.getByText("Ask AI")).toBeInTheDocument();
     expect(await screen.findByText("Hacker News Articles")).toBeInTheDocument();
+  });
+
+  it("marks the tab for the current route and moves the marker when the route changes", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+    render(<App />);
+
+    const articlesTab = screen.getByRole("link", { name: "Articles" });
+    const askTab = screen.getByRole("link", { name: "Ask AI" });
+
+    expect(articlesTab).toHaveAttribute("aria-current", "page");
+    expect(askTab).not.toHaveAttribute("aria-current");
+
+    await userEvent.click(askTab);
+
+    expect(screen.getByRole("link", { name: "Ask AI" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Articles" })).not.toHaveAttribute("aria-current");
   });
 });

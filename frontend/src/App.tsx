@@ -1,11 +1,20 @@
 import { Component, type ReactNode } from "react";
-import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
+import { BrowserRouter, Routes, Route, NavLink } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ArticlesListPage } from "./pages/ArticlesListPage";
 import { ArticleDetailPage } from "./pages/ArticleDetailPage";
 import { AskAiPage } from "./pages/AskAiPage";
 
 const queryClient = new QueryClient();
+
+// -mb-4 + pb-4 pull each tab's underline down onto the nav's own bottom border,
+// so the active marker reads as a bar on the nav edge rather than a floating rule.
+const tabClass = ({ isActive }: { isActive: boolean }) =>
+  `-mb-4 border-b-2 pb-4 font-semibold ${
+    isActive
+      ? "border-orange-600 text-orange-700"
+      : "border-transparent text-gray-900 hover:text-orange-700"
+  }`;
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
   state = { hasError: false };
@@ -29,12 +38,14 @@ export function App() {
         <BrowserRouter>
           <nav className="border-b border-gray-200 p-4">
             <div className="mx-auto flex max-w-4xl gap-6">
-              <Link to="/" className="font-semibold text-gray-900">
+              {/* `end` is required: without it "/" prefix-matches every route and
+                  the Articles tab would stay marked on /ask too. */}
+              <NavLink to="/" end className={tabClass}>
                 Articles
-              </Link>
-              <Link to="/ask" className="font-semibold text-gray-900">
+              </NavLink>
+              <NavLink to="/ask" className={tabClass}>
                 Ask AI
-              </Link>
+              </NavLink>
             </div>
           </nav>
           <Routes>
