@@ -8,11 +8,11 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function renderDetailPage(id: string) {
+function renderDetailPage(id: string, state?: { listSearch: string }) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={[`/articles/${id}`]}>
+      <MemoryRouter initialEntries={[{ pathname: `/articles/${id}`, state }]}>
         <Routes>
           <Route path="/articles/:id" element={<ArticleDetailPage />} />
         </Routes>
@@ -52,5 +52,40 @@ describe("ArticleDetailPage", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 404 }));
     renderDetailPage("999");
     await waitFor(() => expect(screen.getByText("Article not found.")).toBeInTheDocument());
+  });
+
+  it("sends the back link to the list with the filters that were active", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation((url: string) => {
+        if (url === "/api/articles/1") {
+          return Promise.resolve({ ok: true, json: () => Promise.resolve(sampleArticle) });
+        }
+        return Promise.resolve({ ok: false, status: 404 });
+      })
+    );
+    renderDetailPage("1", { listSearch: "?sort=posted_at_desc" });
+
+    await waitFor(() => expect(screen.getByText("Detail Article")).toBeInTheDocument());
+    expect(screen.getByText("\u2190 Back to list")).toHaveAttribute(
+      "href",
+      "/?sort=posted_at_desc"
+    );
+  });
+
+  it("falls back to the unfiltered list when the detail page was opened directly", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation((url: string) => {
+        if (url === "/api/articles/1") {
+          return Promise.resolve({ ok: true, json: () => Promise.resolve(sampleArticle) });
+        }
+        return Promise.resolve({ ok: false, status: 404 });
+      })
+    );
+    renderDetailPage("1");
+
+    await waitFor(() => expect(screen.getByText("Detail Article")).toBeInTheDocument());
+    expect(screen.getByText("\u2190 Back to list")).toHaveAttribute("href", "/");
   });
 });

@@ -1,10 +1,18 @@
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import type { Article } from "../types/article";
 
 export function ArticleCard({ article }: { article: Article }) {
+  // Hand the detail page the filters that were active when this card was
+  // clicked, so its "Back to list" link can return to the same filtered view.
+  const { search } = useLocation();
+
   return (
     <div className="rounded-lg border border-gray-200 p-4 shadow-sm">
-      <Link to={`/articles/${article.id}`} className="text-lg font-semibold text-gray-900 hover:underline">
+      <Link
+        to={`/articles/${article.id}`}
+        state={{ listSearch: search }}
+        className="text-lg font-semibold text-gray-900 hover:underline"
+      >
         {article.title}
       </Link>
       <div className="mt-1 text-sm text-gray-500">

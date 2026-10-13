@@ -1,4 +1,4 @@
-import { useParams, Link } from "react-router-dom";
+import { useParams, useLocation, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { getArticle } from "../api/articles";
 import { ApiError } from "../api/client";
@@ -8,6 +8,12 @@ import { RelatedArticles } from "../components/RelatedArticles";
 export function ArticleDetailPage() {
   const { id } = useParams<{ id: string }>();
   const articleId = Number(id);
+
+  // Empty when the page was opened directly (shared link, refresh), which
+  // correctly falls back to the unfiltered list.
+  const { state } = useLocation();
+  const listSearch = (state as { listSearch?: string } | null)?.listSearch ?? "";
+  const backToList = { pathname: "/", search: listSearch };
 
   const {
     data: article,
@@ -26,7 +32,7 @@ export function ArticleDetailPage() {
     return (
       <div className="p-6">
         <p className="text-red-600">Article not found.</p>
-        <Link to="/" className="text-blue-600 hover:underline">
+        <Link to={backToList} className="text-blue-600 hover:underline">
           Back to list
         </Link>
       </div>
@@ -39,7 +45,7 @@ export function ArticleDetailPage() {
 
   return (
     <div className="mx-auto max-w-3xl p-6">
-      <Link to="/" className="text-sm text-blue-600 hover:underline">
+      <Link to={backToList} className="text-sm text-blue-600 hover:underline">
         ← Back to list
       </Link>
       <h1 className="mt-2 text-2xl font-bold">{article.title}</h1>

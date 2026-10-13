@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { listArticles } from "../api/articles";
-import type { ArticleFilters as Filters } from "../types/article";
+import type { ArticleFilters as Filters, SourceFilter, SortOption } from "../types/article";
 import { ArticleFilters } from "../components/ArticleFilters";
 import { ArticleCard } from "../components/ArticleCard";
 import { Pagination } from "../components/Pagination";
@@ -9,8 +9,42 @@ import { RefreshButton } from "../components/RefreshButton";
 
 const PAGE_SIZE = 20;
 
+// The URL is the single source of truth for the filters, not component state.
+// Keeping them here is what lets the browser restore them on Back: returning
+// from an article detail page replays the list URL, filters included.
+function filtersFromParams(params: URLSearchParams): Filters {
+  const minScore = params.get("min_score");
+  return {
+    keyword: params.get("keyword") || undefined,
+    min_score: minScore ? Number(minScore) : undefined,
+    source: (params.get("source") as SourceFilter) || undefined,
+    sort: (params.get("sort") as SortOption) || "score_desc",
+    page: Number(params.get("page")) || 1,
+    page_size: PAGE_SIZE,
+  };
+}
+
+// page_size is a constant, not a user choice, so it stays out of the URL --
+// as does page 1, which is the default and only adds noise.
+function paramsFromFilters(filters: Filters): URLSearchParams {
+  const params = new URLSearchParams();
+  if (filters.keyword) params.set("keyword", filters.keyword);
+  if (filters.min_score !== undefined) params.set("min_score", String(filters.min_score));
+  if (filters.source) params.set("source", filters.source);
+  if (filters.sort) params.set("sort", filters.sort);
+  if ((filters.page ?? 1) > 1) params.set("page", String(filters.page));
+  return params;
+}
+
 export function ArticlesListPage() {
-  const [filters, setFilters] = useState<Filters>({ page: 1, page_size: PAGE_SIZE, sort: "score_desc" });
+  const [searchParams, setSearchParams] = useSearchParams();
+  const filters = filtersFromParams(searchParams);
+
+  // replace, not push: tweaking a filter shouldn't leave a history entry the
+  // user has to click back through. Opening an article is a push, so Back from
+  // the detail page still lands on this list with these filters applied.
+  const setFilters = (next: Filters) =>
+    setSearchParams(paramsFromFilters(next), { replace: true });
 
   const {
     data: articles,

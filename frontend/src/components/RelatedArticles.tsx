@@ -1,8 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { getRelated } from "../api/ai";
 
 export function RelatedArticles({ articleId }: { articleId: number }) {
+  // Forward, don't drop: hopping detail -> related detail must not lose the
+  // list filters the user started from.
+  const { state } = useLocation();
+
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["related", articleId],
     queryFn: () => getRelated(articleId),
@@ -31,7 +35,11 @@ export function RelatedArticles({ articleId }: { articleId: number }) {
     <ul className="space-y-2">
       {data.data.related.map((article) => (
         <li key={article.id}>
-          <Link to={`/articles/${article.id}`} className="text-blue-600 hover:underline">
+          <Link
+            to={`/articles/${article.id}`}
+            state={state}
+            className="text-blue-600 hover:underline"
+          >
             {article.title}
           </Link>
         </li>

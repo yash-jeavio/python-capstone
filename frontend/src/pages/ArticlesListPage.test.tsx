@@ -1,4 +1,6 @@
 import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { useLocation } from "react-router-dom";
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { ArticlesListPage } from "./ArticlesListPage";
 import { renderWithProviders } from "../testUtils";
@@ -31,6 +33,11 @@ function mockListAndAiCalls(articles: unknown[]) {
   );
 }
 
+function LocationDisplay() {
+  const location = useLocation();
+  return <div data-testid="location">{location.pathname + location.search}</div>;
+}
+
 describe("ArticlesListPage", () => {
   it("renders articles returned by the API", async () => {
     mockListAndAiCalls([sampleArticle]);
@@ -49,5 +56,33 @@ describe("ArticlesListPage", () => {
     render(renderWithProviders(<ArticlesListPage />));
     await waitFor(() => expect(screen.getByText("Failed to load articles.")).toBeInTheDocument());
     expect(screen.getByText("Retry")).toBeInTheDocument();
+  });
+
+  it("starts from the filters in the URL rather than the defaults", async () => {
+    mockListAndAiCalls([sampleArticle]);
+    render(renderWithProviders(<ArticlesListPage />, ["/?sort=posted_at_desc&min_score=50"]));
+
+    await waitFor(() => expect(screen.getByText("Sample Article")).toBeInTheDocument());
+    expect(screen.getByLabelText("Sort")).toHaveValue("posted_at_desc");
+    expect(screen.getByPlaceholderText("Min score")).toHaveValue(50);
+  });
+
+  it("writes the selected filters to the URL so returning to the page restores them", async () => {
+    mockListAndAiCalls([sampleArticle]);
+    render(
+      renderWithProviders(
+        <>
+          <ArticlesListPage />
+          <LocationDisplay />
+        </>
+      )
+    );
+    await waitFor(() => expect(screen.getByText("Sample Article")).toBeInTheDocument());
+
+    await userEvent.selectOptions(screen.getByLabelText("Sort"), "posted_at_desc");
+
+    await waitFor(() =>
+      expect(screen.getByTestId("location")).toHaveTextContent("/?sort=posted_at_desc")
+    );
   });
 });
